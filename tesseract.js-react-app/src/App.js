@@ -3,15 +3,15 @@ import styled from 'styled-components';
 import { createWorker } from 'tesseract.js';
 import './App.css';
 import kommersnart from './assets/kommersnart.png';
-import kvitto from './assets/kvitto.png';
-import IMG_2034 from './assets/IMG_2034.png';
-import IMG_2035 from './assets/IMG_2035.jpg';
-import IMG_2037 from './assets/IMG_2037.jpg';
-import IMG_2037Lower from './assets/img_2037Lower.png';
-import kvittoMeny from './assets/kvitto-meny.png';
+import IMG_2034 from './assets/receiptImages/IMG_2034.png';
+import IMG_2035 from './assets/receiptImages/IMG_2035.jpg';
+import coop6ItemsFlash from './assets/receiptImages/coop6ItemsFlash.jpg';
+import coop3ItemsFlash from './assets/receiptImages/coop3ItemsFlash.jpg';
 import * as groceryStore from './assets/consts/groceryStores';
+import * as GroceryUtil from './model/Grocery';
 
-// TODO: DER JEG SLAPP SIST! Nå må jeg få ut prisen fra listen! (groceries staten). Husk du kan kjøre uten scan med å kommentere ut og inn
+// TODO: DER JEG SLAPP SIST! Får ut prisen NÅ! Nå må jeg få tak i navn! (createGroceryObject) klarer nå å få ut pris.. bruk samme match for å fjerne "pris" stringen i hver rad?
+// ! Husk du kan kjøre uten scan med å kommentere ut og inn
 
 /*
   TODO FOR WHOLE APP:
@@ -20,13 +20,16 @@ import * as groceryStore from './assets/consts/groceryStores';
   - Checkboxes, for å selecte hvilken varer
   - Velge antall mennesker det skal splittes på
   - Hvis sum av vare
+  - Gjør slik at kamera bruker flash! Større sjanse for bedre scan
+  - Lag regex js fil, hvor du har alle regex....
 
 
 
 */
 
 function App() {
-  const img = IMG_2035;
+  // ? Image we will scan... TAKE FLASH PICTURE, reads better!
+  const img = coop3ItemsFlash;
 
   const worker = createWorker({
     logger: (m) => {
@@ -113,7 +116,7 @@ function App() {
       let currentVal = ocrSplit[i];
 
       if (storeName === groceryStore.COOP_MEGA) {
-        if (currentVal.toLowerCase().includes('salgskvittering')) {
+        if (currentVal.toLowerCase().includes('salgskvittering') || currentVal.toLowerCase().includes('salaskvittering')) {
           console.log('salgs kvittering reached at index: ', i);
           startIndex = i;
         }
@@ -158,6 +161,53 @@ function App() {
     console.log('groceries after clean up! ', updatedGroceriesList);
 
     setGroceries(updatedGroceriesList);
+
+  }
+
+  function createGroceryObjects() {
+    // const grocery = [...groceries[0]];
+
+    // let matchDecimals = new RegExp('\d+\.\d+');
+    let matchDecimals = /\d+\.\d+/g;
+
+    const groceriesList = [...groceries];
+
+    console.log("groceriiiiiii: ", groceriesList);
+
+    const groceryObjects = [];
+    const groceryPrices = [];
+    let sum = 0;
+
+    // ? Sjekker en grocery om gangen, og finner prisen (prisen er alltid i desimal)
+    groceriesList.forEach(grocery => {
+      let price = grocery.match(matchDecimals);
+
+      // ? Hvis det er mer enn 1 pris der, så, har den fått tak i desimal tall som står i varen.. vi trenger alltid siste element! (Prisen er alltid slutten av stringen)
+      if (price.length > 1) {
+        price = price[price.length - 1]; // Get last element
+        console.log("PRICE: ", price);
+
+        groceryPrices.push(parseFloat(price)); // Take out array element and add to list
+
+        // Add price to sum
+        sum = sum + parseFloat(price);
+      } else {
+        // ... -> Since match return ARRAY, we pack it out and add to groceryPrices list
+        groceryPrices.push(parseFloat(...grocery.match(matchDecimals)));
+
+        // Add price to sum
+        sum = sum + parseFloat(price);
+      }
+
+      console.log("MATCH! ", groceryPrices);
+    })
+
+    // Set sum so we can display
+    setGroceriesSum(sum.toFixed(2));
+
+    const groceryObj = GroceryUtil.createGroceryObj('Potet', 128);
+
+    console.log('groceryPrices: ', groceryPrices);
   }
 
   // ! RUN WITHOUT SCAN START ------------------------------------------
@@ -248,6 +298,7 @@ function App() {
   const [everything, setEverything] = React.useState([]);
   const [storeName, setStoreName] = React.useState('');
   const [groceries, setGroceries] = React.useState([]);
+  const [groceriesSum, setGroceriesSum] = React.useState(0);
 
   // Scan status.
   // 0.0: not started
@@ -273,6 +324,11 @@ function App() {
   React.useEffect(() => {
     getGroceries();
   }, [storeName]);
+
+  // ? Run function, when groceries is updated
+  React.useEffect(() => {
+    createGroceryObjects()
+  }, [groceries])
 
   return (
     <>
@@ -303,7 +359,7 @@ function App() {
           ))}
 
           <AmountOfGroceries>Amount og groceries: {groceries.length}</AmountOfGroceries>
-          <SumText visible={scanProgress === 1}>Sum: </SumText>
+          <SumText visible={scanProgress === 1}>Sum: {groceriesSum}</SumText>
         </ResultContainer>
       </Container>
     </>
