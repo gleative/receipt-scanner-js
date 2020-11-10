@@ -5,6 +5,7 @@ import './App.css';
 import kommersnart from './assets/kommersnart.png';
 import IMG_2034 from './assets/receiptImages/IMG_2034.png';
 import IMG_2035 from './assets/receiptImages/IMG_2035.jpg';
+import remaKvitto from './assets/receiptImages/rema_kvitto.png';
 import coop6ItemsFlash from './assets/receiptImages/coop6ItemsFlash.jpg';
 import coop3ItemsFlash from './assets/receiptImages/coop3ItemsFlash.jpg';
 import * as groceryStore from './assets/consts/groceryStores';
@@ -29,7 +30,7 @@ import * as GroceryUtil from './model/Grocery';
 
 function App() {
   // ? Image we will scan... TAKE FLASH PICTURE, reads better!
-  const img = coop3ItemsFlash;
+  const img = coop6ItemsFlash;
 
   const worker = createWorker({
     logger: (m) => {
@@ -89,15 +90,15 @@ function App() {
         return;
       }
 
-      // TODO: Rema
+      // TODO: Rema - IN PROGRESS, Problem med å få ut pris for hver vare (checkIfDiscountText)
       if (text.toLowerCase().includes('rema')) {
-        setStoreName(groceryStore.COOP_MEGA);
+        setStoreName(groceryStore.REMA_1000);
         return;
       }
 
       // TODO: Kiwi
       if (text.toLowerCase().includes('kiwi')) {
-        setStoreName(groceryStore.COOP_MEGA);
+        setStoreName(groceryStore.KIWI);
         return;
       }
     });
@@ -116,7 +117,10 @@ function App() {
       let currentVal = ocrSplit[i];
 
       if (storeName === groceryStore.COOP_MEGA) {
-        if (currentVal.toLowerCase().includes('salgskvittering') || currentVal.toLowerCase().includes('salaskvittering')) {
+        if (
+          currentVal.toLowerCase().includes('salgskvittering') ||
+          currentVal.toLowerCase().includes('salaskvittering')
+        ) {
           console.log('salgs kvittering reached at index: ', i);
           startIndex = i;
         }
@@ -128,6 +132,18 @@ function App() {
           endIndex = i - startIndex;
 
           // We got what we want, exit the loop
+          break;
+        }
+      } else if (storeName === groceryStore.REMA_1000) {
+        if (currentVal.toLowerCase().includes('serienr') || currentVal.toLowerCase().includes('frienr')) {
+          console.log('rema: serienr string reached at index: ', i);
+          startIndex = i;
+        }
+
+        if (currentVal.toLowerCase().includes('sum')) {
+          console.log('sum reached at index: ', i);
+
+          endIndex = i - startIndex;
           break;
         }
       }
@@ -161,7 +177,6 @@ function App() {
     console.log('groceries after clean up! ', updatedGroceriesList);
 
     setGroceries(updatedGroceriesList);
-
   }
 
   function createGroceryObjects() {
@@ -172,20 +187,20 @@ function App() {
 
     const groceriesList = [...groceries];
 
-    console.log("groceriiiiiii: ", groceriesList);
+    console.log('groceriiiiiii: ', groceriesList);
 
     const groceryObjects = [];
     const groceryPrices = [];
     let sum = 0;
 
     // ? Sjekker en grocery om gangen, og finner prisen (prisen er alltid i desimal)
-    groceriesList.forEach(grocery => {
+    groceriesList.forEach((grocery) => {
       let price = grocery.match(matchDecimals);
 
       // ? Hvis det er mer enn 1 pris der, så, har den fått tak i desimal tall som står i varen.. vi trenger alltid siste element! (Prisen er alltid slutten av stringen)
       if (price.length > 1) {
         price = price[price.length - 1]; // Get last element
-        console.log("PRICE: ", price);
+        console.log('PRICE: ', price);
 
         groceryPrices.push(parseFloat(price)); // Take out array element and add to list
 
@@ -199,8 +214,8 @@ function App() {
         sum = sum + parseFloat(price);
       }
 
-      console.log("MATCH! ", groceryPrices);
-    })
+      console.log('MATCH! ', groceryPrices);
+    });
 
     // Set sum so we can display
     setGroceriesSum(sum.toFixed(2));
@@ -327,8 +342,8 @@ function App() {
 
   // ? Run function, when groceries is updated
   React.useEffect(() => {
-    createGroceryObjects()
-  }, [groceries])
+    createGroceryObjects();
+  }, [groceries]);
 
   return (
     <>
